@@ -11,7 +11,7 @@ use_plugin("python.flake8")
 use_plugin("python.coverage")
 use_plugin("python.distutils")
 use_plugin('python.cram')
-
+use_plugin('pypi:pybuilder_aws_plugin')
 
 name = "ec2-terminate-wailt"
 summary = '(de)activates the terminate-wait livecycle hook on a ec2 instance'
@@ -19,31 +19,33 @@ description = """
 """
 license = 'Apache License 2.0'
 url = 'https://github.com/ImmobilienScout24/aws-ec2-terminate-wait'
-version = VCSRevision().get_git_revision_count()
-default_task = "publish"
+version = '%s.%s' % (VCSRevision().get_git_revision_count(), os.environ.get('BUILD_NUMBER', '0'))
+default_task = ['clean', 'analyze', 'package']
 
 
 @init
 def set_properties(project):
-    project.depends_on("boto3")
-    project.depends_on("docopt")
-    project.build_depends_on("mock")
-    project.build_depends_on("moto")
-    project.build_depends_on("unittest2")
-    project.set_property("coverage_threshold_warn", 70)
-    project.set_property("coverage_branch_threshold_warn", 80)
-    project.set_property("coverage_branch_partial_threshold_warn", 80)
-    project.set_property('coverage_break_build', True)
+    project.build_depends_on('unittest2')
+    project.build_depends_on('requests_mock')
+    project.build_depends_on('mock')
+    project.build_depends_on('coverage')
+    project.build_depends_on('moto')
+    project.build_depends_on('docopt')
 
-    project.set_property('distutils_classifiers', [
-        'Development Status :: 4 - Beta',
-        'Environment :: Console',
-        'Intended Audience :: Developers',
-        'Intended Audience :: System Administrators',
-        'License :: OSI Approved :: Apache Software License',
-        'Programming Language :: Python',
-        'Topic :: System :: Systems Administration'
-    ])
+    project.depends_on('boto3')
+    project.depends_on('requests')
+    project.depends_on('sh')
+    project.depends_on('cfn-sphere')
 
-    project.version = '%s.%s' % (project.version,
-                                 os.environ.get('BUILD_NUMBER', 0))
+    project.set_property('bucket_name', os.environ.get('BUCKET_NAME_FOR_UPLOAD', 'sns-subscription-distribution'))
+
+    project.set_property('template_files', [('templates', '%s.yml' % project.name)])
+
+    project.set_property('copy_resources_target', '$dir_dist')
+    project.set_property('install_dependencies_upgrade', True)
+
+
+@init(environments='teamcity')
+def set_properties_for_teamcity_builds(project):
+    project.set_property('teamcity_output', True)
+    project.set_property('install_dependencies_index_url', os.environ.get('PYPIPROXY_URL'))
